@@ -1,0 +1,1157 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>เครื่องคำนวณราคาขาย · ส่วนลดลูกโซ่ &amp; กำไร</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          paper: 'rgb(var(--color-paper) / <alpha-value>)',
+          card: 'rgb(var(--color-card) / <alpha-value>)',
+          ink: 'rgb(var(--color-ink) / <alpha-value>)',
+          inkfade: 'rgb(var(--color-inkfade) / <alpha-value>)',
+          ledger: 'rgb(var(--color-ledger) / <alpha-value>)',
+          ledgerdark: 'rgb(var(--color-ledgerdark) / <alpha-value>)',
+          rust: 'rgb(var(--color-rust) / <alpha-value>)',
+          gold: 'rgb(var(--color-gold) / <alpha-value>)',
+          line: 'rgb(var(--color-line) / <alpha-value>)',
+        },
+        fontFamily: {
+          serif: ['"Noto Serif Thai"', 'serif'],
+          sans: ['"Noto Sans Thai"', 'sans-serif'],
+          mono: ['"JetBrains Mono"', 'monospace'],
+        },
+      },
+    },
+  };
+</script>
+
+<style>
+  :root {
+    --color-paper: 246 241 230;
+    --color-card: 255 255 255;
+    --color-ink: 34 39 31;
+    --color-inkfade: 107 100 85;
+    --color-ledger: 14 107 79;
+    --color-ledgerdark: 10 83 64;
+    --color-rust: 179 73 45;
+    --color-gold: 185 138 46;
+    --color-line: 220 209 180;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --color-paper: 27 31 23;
+      --color-card: 36 42 33;
+      --color-ink: 237 232 218;
+      --color-inkfade: 167 158 138;
+      --color-ledger: 47 174 130;
+      --color-ledgerdark: 127 221 176;
+      --color-rust: 226 131 106;
+      --color-gold: 224 185 104;
+      --color-line: 61 68 51;
+    }
+  }
+  :root[data-theme="dark"] {
+    --color-paper: 27 31 23;
+    --color-card: 36 42 33;
+    --color-ink: 237 232 218;
+    --color-inkfade: 167 158 138;
+    --color-ledger: 47 174 130;
+    --color-ledgerdark: 127 221 176;
+    --color-rust: 226 131 106;
+    --color-gold: 224 185 104;
+    --color-line: 61 68 51;
+  }
+  html { -webkit-tap-highlight-color: transparent; scroll-behavior: smooth; }
+  body {
+    background-color: rgb(var(--color-paper));
+    background-image: radial-gradient(circle at 1px 1px, rgb(var(--color-ink) / 0.06) 1px, transparent 0);
+    background-size: 16px 16px;
+  }
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type=number] { -moz-appearance: textfield; }
+  .stub-edge {
+    background-image: linear-gradient(135deg, transparent 8px, rgb(var(--color-card)) 8px);
+    background-position: top left;
+    background-size: 16px 16px;
+    background-repeat: repeat-x;
+  }
+  .torn-edge {
+    background-image: linear-gradient(135deg, rgb(var(--color-card)) 8px, transparent 8px), linear-gradient(-135deg, rgb(var(--color-card)) 8px, transparent 8px);
+    background-position: top left, top right;
+    background-size: 16px 16px, 16px 16px;
+    background-repeat: repeat-x, repeat-x;
+  }
+  ::selection { background: rgb(var(--color-ledger)); color: #fff; }
+  .tab-btn[data-active="true"] { background: rgb(var(--color-ledger)); color: #fff; border-color: rgb(var(--color-ledger)); }
+  .panel-hidden { display: none !important; }
+  #toast { transition: opacity .25s ease, transform .25s ease; }
+  #editBanner { transition: opacity .2s ease, max-height .2s ease; }
+</style>
+</head>
+
+<body class="bg-paper text-ink font-sans min-h-screen pb-16">
+
+<div class="max-w-md mx-auto px-4 pt-6 sm:pt-10">
+
+  <!-- Header -->
+  <header class="mb-4 text-center">
+    <p class="text-xs tracking-wide text-inkfade font-medium">เครื่องมือสำหรับร้านค้าและกิจการค้าส่ง</p>
+    <h1 class="font-serif font-bold text-2xl sm:text-3xl text-ink mt-1">คำนวณส่วนลดลูกโซ่ &amp; ราคาขาย</h1>
+  </header>
+
+  <!-- Mode tabs -->
+  <div class="grid grid-cols-2 gap-2 mb-5">
+    <button type="button" data-mode-btn="forward" data-active="true"
+      class="tab-btn border border-line rounded-xl px-3 py-3 text-sm font-semibold transition-colors">
+      คำนวณราคาขาย
+    </button>
+    <button type="button" data-mode-btn="reverse" data-active="false"
+      class="tab-btn border border-line rounded-xl px-3 py-3 text-sm font-semibold transition-colors">
+      ย้อนกลับหาส่วนลด/กำไร
+    </button>
+  </div>
+
+  <!-- =====================================================================
+       FORWARD MODE
+  ====================================================================== -->
+  <div id="panel-forward">
+
+    <!-- ===================== RESULTS SUMMARY (RECEIPT) ===================== -->
+    <section class="mb-6">
+      <div class="torn-edge bg-white rounded-b-2xl shadow-[0_10px_30px_-12px_rgba(34,39,31,0.35)] border border-line/70 overflow-hidden">
+        <div class="pt-4 pb-5 px-5">
+          <div class="flex items-center justify-between border-b border-dashed border-line pb-3 mb-3">
+            <span class="font-serif font-semibold text-ledgerdark text-sm" id="resItemNameLabel">สรุปผลการคำนวณ</span>
+            <span id="effDiscountBadge" class="text-xs font-mono font-medium text-rust bg-rust/10 rounded-full px-2 py-1 whitespace-nowrap">ลด 0.0%</span>
+          </div>
+
+          <dl class="space-y-2 text-sm">
+            <div class="flex justify-between items-baseline">
+              <dt class="text-inkfade">ราคาตั้ง</dt>
+              <dd class="font-mono" id="resListPrice">0.00</dd>
+            </div>
+            <div class="flex justify-between items-baseline">
+              <dt class="text-inkfade">ทุนสุทธิ (หลังหักส่วนลด)</dt>
+              <dd class="font-mono" id="resNetCost">0.00</dd>
+            </div>
+            <div class="flex justify-between items-baseline">
+              <dt class="text-inkfade">ค่าขนส่ง / หน่วย</dt>
+              <dd class="font-mono" id="resShipping">0.00</dd>
+            </div>
+            <div class="flex justify-between items-baseline">
+              <dt class="text-inkfade">ทุนสุทธิรวมขนส่ง (ไม่รวม VAT)</dt>
+              <dd class="font-mono" id="resNetCostTotal">0.00</dd>
+            </div>
+            <div class="flex justify-between items-baseline">
+              <dt class="text-inkfade">ทุนรวม VAT</dt>
+              <dd class="font-mono" id="resCostVat">0.00</dd>
+            </div>
+            <div class="flex justify-between items-baseline">
+              <dt class="text-inkfade">กำไรต่อหน่วย</dt>
+              <dd class="font-mono text-ledgerdark" id="resProfitUnit">0.00</dd>
+            </div>
+          </dl>
+
+          <div class="border-t border-dashed border-line my-3"></div>
+
+          <div class="flex items-end justify-between">
+            <span class="font-serif text-ink text-sm">ราคาขายสุทธิ / หน่วย</span>
+            <span class="font-mono font-bold text-2xl text-ledgerdark" id="resSellPrice">0.00</span>
+          </div>
+          <p class="text-xs text-inkfade text-right mt-0.5" id="resRoundNote"></p>
+
+          <div class="border-t border-dashed border-line my-3"></div>
+
+          <dl class="space-y-2 text-sm">
+            <div class="flex justify-between items-baseline">
+              <dt class="text-inkfade">จำนวนขาย</dt>
+              <dd class="font-mono" id="resQty">0</dd>
+            </div>
+            <div class="flex justify-between items-baseline">
+              <dt class="text-inkfade">ต้นทุนรวม (รวม VAT)</dt>
+              <dd class="font-mono" id="resTotalCost">0.00</dd>
+            </div>
+            <div class="flex justify-between items-baseline">
+              <dt class="font-medium text-ink">ยอดขายรวม</dt>
+              <dd class="font-mono font-semibold" id="resTotalRevenue">0.00</dd>
+            </div>
+            <div class="flex justify-between items-baseline">
+              <dt class="font-medium text-ledgerdark">กำไรรวมทั้งหมด</dt>
+              <dd class="font-mono font-bold text-lg text-ledgerdark" id="resTotalProfit">0.00</dd>
+            </div>
+          </dl>
+
+          <!-- Tiered pricing -->
+          <div class="border-t border-dashed border-line my-3"></div>
+          <p class="text-xs font-medium text-inkfade mb-2">ระดับราคาขาย (Tiered Pricing)</p>
+          <dl class="space-y-1.5 text-sm" id="tierResults"></dl>
+
+          <!-- Save / Copy actions -->
+          <div class="border-t border-dashed border-line my-3"></div>
+          <div id="editBanner" class="hidden mb-2 flex items-center justify-between bg-gold/10 border border-gold/40 rounded-lg px-3 py-2 text-xs text-gold">
+            <span id="editBannerText">กำลังแก้ไขรายการที่บันทึกไว้</span>
+            <button type="button" id="cancelEditBtn" class="font-semibold underline">ยกเลิก</button>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" id="saveItemBtn"
+              class="bg-ledger hover:bg-ledgerdark text-white font-semibold rounded-xl py-3 text-sm transition-colors">
+              บันทึกรายการ
+            </button>
+            <button type="button" id="copySummaryBtn"
+              class="bg-white border border-line hover:border-ledger text-ink font-semibold rounded-xl py-3 text-sm transition-colors">
+              คัดลอกสรุปผล
+            </button>
+          </div>
+        </div>
+        <div class="stub-edge h-2 bg-paper"></div>
+      </div>
+    </section>
+
+    <!-- ===================== INPUT FORM ===================== -->
+    <form id="calc-form" class="space-y-5">
+
+      <!-- Item name -->
+      <div class="bg-card rounded-2xl border border-line/70 p-4">
+        <label for="itemName" class="block text-sm font-medium text-ink mb-2">ชื่อสินค้า / SKU (สำหรับบันทึก)</label>
+        <input id="itemName" name="itemName" type="text" placeholder="เช่น สีกันซึม รุ่น X"
+          class="w-full rounded-xl border border-line bg-white px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-ledger/40 focus:border-ledger" />
+      </div>
+
+      <!-- List price -->
+      <div class="bg-card rounded-2xl border border-line/70 p-4">
+        <label for="listPrice" class="block text-sm font-medium text-ink mb-2">ราคาตั้ง (List Price)</label>
+        <div class="relative">
+          <span class="absolute left-4 top-1/2 -translate-y-1/2 text-inkfade">฿</span>
+          <input id="listPrice" name="listPrice" type="number" inputmode="decimal" min="0" step="0.01" value="100"
+            class="w-full rounded-xl border border-line bg-white pl-9 pr-4 py-3 text-lg font-mono focus:outline-none focus:ring-2 focus:ring-ledger/40 focus:border-ledger" />
+        </div>
+      </div>
+
+      <!-- Chain discounts -->
+      <div class="bg-card rounded-2xl border border-line/70 p-4">
+        <label for="discountSteps" class="block text-sm font-medium text-ink mb-1">สเต็ปส่วนลด (Chain Discount)</label>
+        <p class="text-xs text-inkfade mb-2">ใส่ % แต่ละขั้นคั่นด้วยเครื่องหมาย / เช่น 30/30/24/10 — ระบบจะหักลดต่อเนื่องทีละขั้น</p>
+        <input id="discountSteps" name="discountSteps" type="text" inputmode="decimal" value="30/30/24/10" placeholder="เช่น 30/30/24/10"
+          class="w-full rounded-xl border border-line bg-white px-4 py-3 text-lg font-mono tracking-wide focus:outline-none focus:ring-2 focus:ring-ledger/40 focus:border-ledger" />
+      </div>
+
+      <!-- Shipping cost -->
+      <div class="bg-card rounded-2xl border border-line/70 p-4">
+        <label for="shippingValue" class="block text-sm font-medium text-ink mb-2">ค่าขนส่ง (Shipping Cost)</label>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <label class="cursor-pointer">
+            <input type="radio" name="shippingMode" value="flat" class="peer sr-only" checked>
+            <div class="peer-checked:bg-ledger peer-checked:text-white peer-checked:border-ledger border border-line rounded-xl px-2 py-2.5 text-center text-xs font-medium transition-colors">
+              เหมาทั้งหมด (Flat)
+            </div>
+          </label>
+          <label class="cursor-pointer">
+            <input type="radio" name="shippingMode" value="perunit" class="peer sr-only">
+            <div class="peer-checked:bg-ledger peer-checked:text-white peer-checked:border-ledger border border-line rounded-xl px-2 py-2.5 text-center text-xs font-medium transition-colors">
+              ต่อชิ้น (Per Unit)
+            </div>
+          </label>
+        </div>
+        <div class="relative">
+          <span class="absolute left-4 top-1/2 -translate-y-1/2 text-inkfade">฿</span>
+          <input id="shippingValue" name="shippingValue" type="number" inputmode="decimal" min="0" step="0.01" value="0"
+            class="w-full rounded-xl border border-line bg-white pl-9 pr-4 py-3 text-lg font-mono focus:outline-none focus:ring-2 focus:ring-ledger/40 focus:border-ledger" />
+        </div>
+        <p class="text-xs text-inkfade mt-2" id="shippingHint">ยอดรวมค่าขนส่งทั้งหมด — ระบบจะหารเฉลี่ยตามจำนวนขาย (จำนวนขาย)</p>
+      </div>
+
+      <!-- VAT -->
+      <div class="bg-card rounded-2xl border border-line/70 p-4">
+        <label for="vatRate" class="block text-sm font-medium text-ink mb-2">ภาษีมูลค่าเพิ่ม VAT (%)</label>
+        <input id="vatRate" name="vatRate" type="number" inputmode="decimal" min="0" step="0.01" value="7"
+          class="w-full rounded-xl border border-line bg-white px-4 py-3 text-lg font-mono focus:outline-none focus:ring-2 focus:ring-ledger/40 focus:border-ledger mb-3" />
+
+        <p class="text-xs font-medium text-inkfade mb-2">ราคาตั้งด้านบนนี้รวม VAT แล้วหรือยัง</p>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <label class="cursor-pointer">
+            <input type="radio" name="vatInclusion" value="excl" class="peer sr-only" checked>
+            <div class="peer-checked:bg-ledger peer-checked:text-white peer-checked:border-ledger border border-line rounded-xl px-2 py-2.5 text-center text-xs font-medium transition-colors">
+              ยังไม่รวม VAT
+            </div>
+          </label>
+          <label class="cursor-pointer">
+            <input type="radio" name="vatInclusion" value="incl" class="peer sr-only">
+            <div class="peer-checked:bg-ledger peer-checked:text-white peer-checked:border-ledger border border-line rounded-xl px-2 py-2.5 text-center text-xs font-medium transition-colors">
+              รวม VAT แล้ว
+            </div>
+          </label>
+        </div>
+
+        <p class="text-xs font-medium text-inkfade mb-2">ลำดับการคิด VAT กับกำไร</p>
+        <div class="grid grid-cols-1 gap-2">
+          <label class="cursor-pointer">
+            <input type="radio" name="vatTiming" value="after" class="peer sr-only" checked>
+            <div class="peer-checked:bg-ledger peer-checked:text-white peer-checked:border-ledger border border-line rounded-xl px-3 py-2.5 text-sm font-medium transition-colors">
+              ตั้งกำไรจากทุนก่อน แล้วค่อยบวก VAT ทีหลัง
+            </div>
+          </label>
+          <label class="cursor-pointer">
+            <input type="radio" name="vatTiming" value="before" class="peer sr-only">
+            <div class="peer-checked:bg-ledger peer-checked:text-white peer-checked:border-ledger border border-line rounded-xl px-3 py-2.5 text-sm font-medium transition-colors">
+              รวม VAT เข้าทุนก่อน แล้วค่อยตั้งกำไรทับ
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Profit -->
+      <div class="bg-card rounded-2xl border border-line/70 p-4">
+        <p class="text-sm font-medium text-ink mb-2">กำไรที่ต้องการ (Desired Profit)</p>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <label class="cursor-pointer">
+            <input type="radio" name="profitType" value="percent" class="peer sr-only" checked>
+            <div class="peer-checked:bg-ledger peer-checked:text-white peer-checked:border-ledger border border-line rounded-xl px-3 py-2.5 text-center text-sm font-medium transition-colors">
+              % จากทุน
+            </div>
+          </label>
+          <label class="cursor-pointer">
+            <input type="radio" name="profitType" value="fixed" class="peer sr-only">
+            <div class="peer-checked:bg-ledger peer-checked:text-white peer-checked:border-ledger border border-line rounded-xl px-3 py-2.5 text-center text-sm font-medium transition-colors">
+              บาท / หน่วย
+            </div>
+          </label>
+        </div>
+        <div class="relative">
+          <input id="profitValue" name="profitValue" type="number" inputmode="decimal" min="0" step="0.01" value="30"
+            class="w-full rounded-xl border border-line bg-white pl-4 pr-12 py-3 text-lg font-mono focus:outline-none focus:ring-2 focus:ring-ledger/40 focus:border-ledger" />
+          <span id="profitSuffix" class="absolute right-4 top-1/2 -translate-y-1/2 text-inkfade font-medium">%</span>
+        </div>
+      </div>
+
+      <!-- Quantity -->
+      <div class="bg-card rounded-2xl border border-line/70 p-4">
+        <label for="qty" class="block text-sm font-medium text-ink mb-2">จำนวนขาย (Quantity)</label>
+        <input id="qty" name="qty" type="number" inputmode="numeric" min="0" step="1" value="1"
+          class="w-full rounded-xl border border-line bg-white px-4 py-3 text-lg font-mono focus:outline-none focus:ring-2 focus:ring-ledger/40 focus:border-ledger" />
+      </div>
+
+      <!-- Rounding -->
+      <div class="bg-card rounded-2xl border border-line/70 p-4">
+        <p class="text-sm font-medium text-ink mb-2">ปัดราคาขาย (ตัวเลือกเสริม)</p>
+        <select id="roundMode" name="roundMode"
+          class="w-full rounded-xl border border-line bg-white px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-ledger/40 focus:border-ledger">
+          <option value="none">ไม่ปัดเศษ</option>
+          <option value="up1">ปัดขึ้นเป็นจำนวนเต็ม (บาท)</option>
+          <option value="up5">ปัดขึ้นเป็นเลขคูณ 5 บาท</option>
+          <option value="end9">ปัดให้ลงท้าย 9 (ราคาจิตวิทยา)</option>
+        </select>
+      </div>
+
+      <!-- Tiers -->
+      <div class="bg-card rounded-2xl border border-line/70 p-4">
+        <p class="text-sm font-medium text-ink mb-1">ตั้งราคาหลายระดับ (Tiered Pricing)</p>
+        <p class="text-xs text-inkfade mb-3">กำหนดกำไรของแต่ละระดับ ระบบจะคำนวณราคาขายให้พร้อมกันทั้งหมดในสรุปผลด้านบน</p>
+        <div class="space-y-3" id="tierInputs"></div>
+      </div>
+    </form>
+
+    <!-- ===================== STEP-BY-STEP BREAKDOWN ===================== -->
+    <section class="mt-6 bg-card rounded-2xl border border-line/70 p-4">
+      <p class="font-serif font-semibold text-ink mb-3">ขั้นตอนการหักส่วนลด</p>
+      <ol id="breakdownList" class="space-y-3"></ol>
+      <p class="text-xs text-inkfade mt-3" id="breakdownEmpty">ยังไม่มีสเต็ปส่วนลดให้แสดง</p>
+    </section>
+  </div>
+
+  <!-- =====================================================================
+       REVERSE MODE
+  ====================================================================== -->
+  <div id="panel-reverse" class="panel-hidden">
+
+    <section class="mb-6">
+      <div class="torn-edge bg-white rounded-b-2xl shadow-[0_10px_30px_-12px_rgba(34,39,31,0.35)] border border-line/70 overflow-hidden">
+        <div class="pt-4 pb-5 px-5">
+          <div class="flex items-center justify-between border-b border-dashed border-line pb-3 mb-3">
+            <span class="font-serif font-semibold text-ledgerdark text-sm">ผลการย้อนกลับ</span>
+          </div>
+          <div id="revResultBody" class="space-y-2 text-sm"></div>
+          <div class="border-t border-dashed border-line my-3"></div>
+          <button type="button" id="copySummaryRevBtn"
+            class="w-full bg-white border border-line hover:border-ledger text-ink font-semibold rounded-xl py-3 text-sm transition-colors">
+            คัดลอกสรุปผล
+          </button>
+        </div>
+        <div class="stub-edge h-2 bg-paper"></div>
+      </div>
+    </section>
+
+    <form id="rev-form" class="space-y-5">
+      <div class="bg-card rounded-2xl border border-line/70 p-4">
+        <label for="revTargetPrice" class="block text-sm font-medium text-ink mb-2">ราคาขายเป้าหมาย (Target Price)</label>
+        <div class="relative">
+          <span class="absolute left-4 top-1/2 -translate-y-1/2 text-inkfade">฿</span>
+          <input id="revTargetPrice" name="revTargetPrice" type="number" inputmode="decimal" min="0" step="0.01" value="99"
+            class="w-full rounded-xl border border-line bg-white pl-9 pr-4 py-3 text-lg font-mono focus:outline-none focus:ring-2 focus:ring-ledger/40 focus:border-ledger" />
+        </div>
+        <p class="text-xs text-inkfade mt-2">ราคาสุดท้ายที่ต้องการขาย (รวม VAT) เช่น ราคาคู่แข่งในตลาด</p>
+      </div>
+
+      <div class="bg-card rounded-2xl border border-line/70 p-4">
+        <p class="text-sm font-medium text-ink mb-2">ต้องการหา</p>
+        <div class="grid grid-cols-1 gap-2">
+          <label class="cursor-pointer">
+            <input type="radio" name="revSubMode" value="discount" class="peer sr-only" checked>
+            <div class="peer-checked:bg-ledger peer-checked:text-white peer-checked:border-ledger border border-line rounded-xl px-3 py-2.5 text-sm font-medium transition-colors">
+              ส่วนลดที่ต้องขอจากซัพพลายเออร์ (มีราคาตั้ง)
+            </div>
+          </label>
+          <label class="cursor-pointer">
+            <input type="radio" name="revSubMode" value="markup" class="peer sr-only">
+            <div class="peer-checked:bg-ledger peer-checked:text-white peer-checked:border-ledger border border-line rounded-xl px-3 py-2.5 text-sm font-medium transition-colors">
+              % กำไรที่ได้จริง (ทราบทุนสุทธิอยู่แล้ว)
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="bg-card rounded-2xl border border-line/70 p-4" id="revDiscountFields">
+        <label for="revListPrice" class="block text-sm font-medium text-ink mb-2">ราคาตั้งจากซัพพลายเออร์</label>
+        <div class="relative mb-3">
+          <span class="absolute left-4 top-1/2 -translate-y-1/2 text-inkfade">฿</span>
+          <input id="revListPrice" name="revListPrice" type="number" inputmode="decimal" min="0" step="0.01" value="150"
+            class="w-full rounded-xl border border-line bg-white pl-9 pr-4 py-3 text-lg font-mono focus:outline-none focus:ring-2 focus:ring-ledger/40 focus:border-ledger" />
+        </div>
+        <p class="text-sm font-medium text-ink mb-2">กำไรที่ต้องการรักษาไว้</p>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <label class="cursor-pointer">
+            <input type="radio" name="revProfitType" value="percent" class="peer sr-only" checked>
+            <div class="peer-checked:bg-ledger peer-checked:text-white peer-checked:border-ledger border border-line rounded-xl px-3 py-2.5 text-center text-sm font-medium transition-colors">
+              % จากทุน
+            </div>
+          </label>
+          <label class="cursor-pointer">
+            <input type="radio" name="revProfitType" value="fixed" class="peer sr-only">
+            <div class="peer-checked:bg-ledger peer-checked:text-white peer-checked:border-ledger border border-line rounded-xl px-3 py-2.5 text-center text-sm font-medium transition-colors">
+              บาท / หน่วย
+            </div>
+          </label>
+        </div>
+        <div class="relative">
+          <input id="revProfitValue" name="revProfitValue" type="number" inputmode="decimal" min="0" step="0.01" value="30"
+            class="w-full rounded-xl border border-line bg-white pl-4 pr-12 py-3 text-lg font-mono focus:outline-none focus:ring-2 focus:ring-ledger/40 focus:border-ledger" />
+          <span id="revProfitSuffix" class="absolute right-4 top-1/2 -translate-y-1/2 text-inkfade font-medium">%</span>
+        </div>
+      </div>
+
+      <div class="bg-card rounded-2xl border border-line/70 p-4 hidden" id="revMarkupFields">
+        <label for="revNetCost" class="block text-sm font-medium text-ink mb-2">ทุนสุทธิที่ทราบอยู่แล้ว</label>
+        <div class="relative">
+          <span class="absolute left-4 top-1/2 -translate-y-1/2 text-inkfade">฿</span>
+          <input id="revNetCost" name="revNetCost" type="number" inputmode="decimal" min="0" step="0.01" value="40"
+            class="w-full rounded-xl border border-line bg-white pl-9 pr-4 py-3 text-lg font-mono focus:outline-none focus:ring-2 focus:ring-ledger/40 focus:border-ledger" />
+        </div>
+      </div>
+
+      <div class="bg-card rounded-2xl border border-line/70 p-4">
+        <p class="text-xs font-medium text-inkfade mb-2">ตัวเลขที่กรอกด้านบน (ราคาตั้ง/ทุน) รวม VAT แล้วหรือยัง</p>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <label class="cursor-pointer">
+            <input type="radio" name="revVatInclusion" value="excl" class="peer sr-only" checked>
+            <div class="peer-checked:bg-ledger peer-checked:text-white peer-checked:border-ledger border border-line rounded-xl px-2 py-2.5 text-center text-xs font-medium transition-colors">
+              ยังไม่รวม VAT
+            </div>
+          </label>
+          <label class="cursor-pointer">
+            <input type="radio" name="revVatInclusion" value="incl" class="peer sr-only">
+            <div class="peer-checked:bg-ledger peer-checked:text-white peer-checked:border-ledger border border-line rounded-xl px-2 py-2.5 text-center text-xs font-medium transition-colors">
+              รวม VAT แล้ว
+            </div>
+          </label>
+        </div>
+
+        <label for="revVatRate" class="block text-sm font-medium text-ink mb-2">ภาษีมูลค่าเพิ่ม VAT (%)</label>
+        <input id="revVatRate" name="revVatRate" type="number" inputmode="decimal" min="0" step="0.01" value="7"
+          class="w-full rounded-xl border border-line bg-white px-4 py-3 text-lg font-mono focus:outline-none focus:ring-2 focus:ring-ledger/40 focus:border-ledger mb-3" />
+
+        <p class="text-xs font-medium text-inkfade mb-2">ลำดับการคิด VAT กับกำไร</p>
+        <div class="grid grid-cols-1 gap-2">
+          <label class="cursor-pointer">
+            <input type="radio" name="revVatTiming" value="after" class="peer sr-only" checked>
+            <div class="peer-checked:bg-ledger peer-checked:text-white peer-checked:border-ledger border border-line rounded-xl px-3 py-2.5 text-sm font-medium transition-colors">
+              ตั้งกำไรจากทุนก่อน แล้วค่อยบวก VAT ทีหลัง
+            </div>
+          </label>
+          <label class="cursor-pointer">
+            <input type="radio" name="revVatTiming" value="before" class="peer sr-only">
+            <div class="peer-checked:bg-ledger peer-checked:text-white peer-checked:border-ledger border border-line rounded-xl px-3 py-2.5 text-sm font-medium transition-colors">
+              รวม VAT เข้าทุนก่อน แล้วค่อยตั้งกำไรทับ
+            </div>
+          </label>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- =====================================================================
+       HISTORY (shared, always visible)
+  ====================================================================== -->
+  <section class="mt-6 bg-card rounded-2xl border border-line/70 p-4">
+    <div class="flex items-center justify-between mb-3">
+      <p class="font-serif font-semibold text-ink">ประวัติ / รายการที่บันทึกไว้</p>
+      <span class="text-xs text-inkfade font-mono" id="historyCount">0 รายการ</span>
+    </div>
+    <div class="grid grid-cols-2 gap-2 mb-4">
+      <button type="button" id="exportCsvBtn"
+        class="bg-white border border-line hover:border-ledger text-ink font-semibold rounded-xl py-2.5 text-sm transition-colors">
+        ส่งออก CSV
+      </button>
+      <button type="button" id="clearHistoryBtn"
+        class="bg-white border border-line hover:border-rust hover:text-rust text-ink font-semibold rounded-xl py-2.5 text-sm transition-colors">
+        ล้างประวัติทั้งหมด
+      </button>
+    </div>
+    <div id="historyList" class="space-y-3"></div>
+    <p class="text-xs text-inkfade mt-3" id="historyEmpty">ยังไม่มีรายการที่บันทึกไว้ — กด "บันทึกรายการ" ในโหมดคำนวณราคาขายเพื่อเก็บไว้เปรียบเทียบ</p>
+  </section>
+
+  <footer class="mt-8 text-center text-xs text-inkfade leading-relaxed">
+    เครื่องมือนี้เป็นการประมาณการเพื่อช่วยตัดสินใจตั้งราคาเท่านั้น<br />
+    สำหรับการคำนวณภาษีหรือบัญชีจริง กรุณาปรึกษาผู้เชี่ยวชาญด้านบัญชี/ภาษี<br />
+    ข้อมูลที่บันทึกไว้จะถูกเก็บในเบราว์เซอร์นี้เท่านั้น (localStorage) ไม่ถูกส่งออกไปที่ใด
+  </footer>
+</div>
+
+<div id="toast" class="fixed left-1/2 -translate-x-1/2 bottom-6 bg-ink text-white text-sm font-medium px-4 py-2.5 rounded-full shadow-lg opacity-0 pointer-events-none translate-y-2 z-50"></div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const HISTORY_KEY = 'pricingCalcHistoryV1';
+
+  // ---------- helpers ----------
+  function fmt(n) {
+    if (!isFinite(n)) n = 0;
+    return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function fmtInt(n) {
+    if (!isFinite(n)) n = 0;
+    return Math.round(n).toLocaleString('th-TH');
+  }
+  function getRadio(form, name) {
+    const el = form.querySelector(`input[name="${name}"]:checked`);
+    return el ? el.value : null;
+  }
+  function showToast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.remove('opacity-0', 'translate-y-2');
+    t.classList.add('opacity-100', 'translate-y-0');
+    clearTimeout(t._hideTimer);
+    t._hideTimer = setTimeout(() => {
+      t.classList.add('opacity-0', 'translate-y-2');
+      t.classList.remove('opacity-100', 'translate-y-0');
+    }, 2200);
+  }
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(
+        () => showToast('คัดลอกสรุปผลแล้ว!'),
+        () => fallbackCopy(text)
+      );
+    } else {
+      fallbackCopy(text);
+    }
+  }
+  function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
+      document.execCommand('copy');
+      showToast('คัดลอกสรุปผลแล้ว!');
+    } catch (e) {
+      showToast('คัดลอกไม่สำเร็จ ลองแตะค้างเพื่อคัดลอกเอง');
+    }
+    document.body.removeChild(ta);
+  }
+
+  // ---------- shared pricing math ----------
+  function chainDiscount(listPrice, steps) {
+    let running = listPrice;
+    steps.forEach((pct) => { running = running - running * (pct / 100); });
+    return running;
+  }
+  function resolveCostBasis(chainResult, vatRate, vatInclusion) {
+    let netCost, costWithVat;
+    if (vatInclusion === 'incl') {
+      costWithVat = chainResult;
+      netCost = chainResult / (1 + vatRate / 100);
+    } else {
+      netCost = chainResult;
+      costWithVat = chainResult * (1 + vatRate / 100);
+    }
+    return { netCost, costWithVat };
+  }
+  function sellPriceFromCost(netCost, vatRate, vatTiming, profitType, profitValue) {
+    const costWithVat = netCost * (1 + vatRate / 100);
+    const costBasis = vatTiming === 'before' ? costWithVat : netCost;
+    const profitAmount = profitType === 'percent' ? costBasis * (profitValue / 100) : profitValue;
+    let sellPrice;
+    if (vatTiming === 'before') {
+      sellPrice = costWithVat + profitAmount;
+    } else {
+      sellPrice = (netCost + profitAmount) * (1 + vatRate / 100);
+    }
+    return { costWithVat, profitAmount, sellPrice, profitPerUnit: sellPrice - costWithVat };
+  }
+  function solveNetCostFromTarget(targetPrice, vatRate, vatTiming, profitType, profitValue) {
+    if (vatTiming === 'before') {
+      const costWithVat = profitType === 'percent'
+        ? targetPrice / (1 + profitValue / 100)
+        : targetPrice - profitValue;
+      return costWithVat / (1 + vatRate / 100);
+    } else {
+      const priceBeforeVat = targetPrice / (1 + vatRate / 100);
+      return profitType === 'percent'
+        ? priceBeforeVat / (1 + profitValue / 100)
+        : priceBeforeVat - profitValue;
+    }
+  }
+  function achievedMarkup(netCost, targetPrice, vatRate, vatTiming) {
+    let costWithVat, achievedProfit, achievedPct;
+    if (vatTiming === 'before') {
+      costWithVat = netCost * (1 + vatRate / 100);
+      achievedProfit = targetPrice - costWithVat;
+      achievedPct = costWithVat > 0 ? (achievedProfit / costWithVat) * 100 : NaN;
+    } else {
+      costWithVat = netCost * (1 + vatRate / 100);
+      const priceBeforeVat = targetPrice / (1 + vatRate / 100);
+      achievedProfit = priceBeforeVat - netCost;
+      achievedPct = netCost > 0 ? (achievedProfit / netCost) * 100 : NaN;
+    }
+    return { achievedProfit, achievedPct, costWithVat };
+  }
+  function applyRounding(price, mode) {
+    if (!isFinite(price) || price <= 0) return price;
+    switch (mode) {
+      case 'up1': return Math.ceil(price);
+      case 'up5': return Math.ceil(price / 5) * 5;
+      case 'end9': {
+        let base = Math.floor(price / 10) * 10 + 9;
+        if (base < price) base += 10;
+        return base;
+      }
+      default: return price;
+    }
+  }
+
+  // =====================================================================
+  // MODE TABS
+  // =====================================================================
+  let currentMode = 'forward';
+  document.querySelectorAll('[data-mode-btn]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      currentMode = btn.getAttribute('data-mode-btn');
+      document.querySelectorAll('[data-mode-btn]').forEach((b) =>
+        b.setAttribute('data-active', b === btn ? 'true' : 'false')
+      );
+      $('panel-forward').classList.toggle('panel-hidden', currentMode !== 'forward');
+      $('panel-reverse').classList.toggle('panel-hidden', currentMode !== 'reverse');
+    });
+  });
+
+  // =====================================================================
+  // FORWARD MODE
+  // =====================================================================
+  const form = $('calc-form');
+  const itemNameEl = $('itemName');
+  const listPriceEl = $('listPrice');
+  const discountEl = $('discountSteps');
+  const shippingValueEl = $('shippingValue');
+  const shippingHintEl = $('shippingHint');
+  const vatRateEl = $('vatRate');
+  const qtyEl = $('qty');
+  const profitValueEl = $('profitValue');
+  const profitSuffixEl = $('profitSuffix');
+  const roundModeEl = $('roundMode');
+
+  function updateShippingHint() {
+    const mode = getRadio(form, 'shippingMode') || 'flat';
+    shippingHintEl.textContent = mode === 'flat'
+      ? 'ยอดรวมค่าขนส่งทั้งหมด — ระบบจะหารเฉลี่ยตามจำนวนขาย (จำนวนขาย)'
+      : 'ค่าขนส่งต่อชิ้น — ระบบจะคูณตามจำนวนขายให้อัตโนมัติ';
+  }
+
+  const TIER_DEFAULTS = [
+    { key: 'contractor', name: 'ราคาช่าง (Contractor)', type: 'percent', value: 15 },
+    { key: 'wholesale', name: 'ราคาขายส่ง (Wholesale)', type: 'percent', value: 25 },
+    { key: 'retail', name: 'ราคาขายปลีก MSRP (Retail)', type: 'percent', value: 40 },
+  ];
+
+  function buildTierInputs() {
+    const wrap = $('tierInputs');
+    wrap.innerHTML = '';
+    TIER_DEFAULTS.forEach((t) => {
+      const row = document.createElement('div');
+      row.className = 'grid grid-cols-12 gap-2 items-center';
+      row.innerHTML = `
+        <input type="text" data-tier-name="${t.key}" value="${t.name}"
+          class="col-span-6 rounded-lg border border-line bg-white px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-ledger/40 focus:border-ledger" />
+        <input type="number" inputmode="decimal" min="0" step="0.01" data-tier-value="${t.key}" value="${t.value}"
+          class="col-span-3 rounded-lg border border-line bg-white px-2 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-ledger/40 focus:border-ledger" />
+        <select data-tier-type="${t.key}" class="col-span-3 rounded-lg border border-line bg-white px-1 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-ledger/40 focus:border-ledger">
+          <option value="percent" ${t.type === 'percent' ? 'selected' : ''}>%</option>
+          <option value="fixed" ${t.type === 'fixed' ? 'selected' : ''}>฿</option>
+        </select>`;
+      wrap.appendChild(row);
+    });
+  }
+  buildTierInputs();
+
+  function getTierConfig() {
+    return TIER_DEFAULTS.map((t) => ({
+      key: t.key,
+      name: form.querySelector(`[data-tier-name="${t.key}"]`).value || t.name,
+      type: form.querySelector(`[data-tier-type="${t.key}"]`).value,
+      value: parseFloat(form.querySelector(`[data-tier-value="${t.key}"]`).value) || 0,
+    }));
+  }
+
+  function renderBreakdown(listPrice, steps) {
+    const list = $('breakdownList');
+    const empty = $('breakdownEmpty');
+    list.innerHTML = '';
+    if (!steps.length) { empty.classList.remove('hidden'); return; }
+    empty.classList.add('hidden');
+
+    let running = listPrice;
+    steps.forEach((pct, i) => {
+      const before = running;
+      const deducted = before * (pct / 100);
+      const after = before - deducted;
+      running = after;
+      const li = document.createElement('li');
+      li.className = 'flex items-start gap-3';
+      li.innerHTML = `
+        <span class="shrink-0 w-7 h-7 rounded-full bg-ledger/10 text-ledgerdark font-mono text-xs font-bold flex items-center justify-center mt-0.5">${i + 1}</span>
+        <div class="flex-1 min-w-0">
+          <div class="flex justify-between text-sm">
+            <span class="text-inkfade">฿${fmt(before)} &nbsp;−${pct}%</span>
+            <span class="font-mono text-rust">−${fmt(deducted)}</span>
+          </div>
+          <div class="flex justify-between text-sm mt-0.5 pb-2 ${i < steps.length - 1 ? 'border-b border-dashed border-line' : ''}">
+            <span class="text-inkfade">เหลือ</span>
+            <span class="font-mono font-semibold text-ink">฿${fmt(after)}</span>
+          </div>
+        </div>`;
+      list.appendChild(li);
+    });
+  }
+
+  let lastForward = null; // cache of last computed forward result, used by save/copy
+
+  function calculateForward() {
+    const itemName = itemNameEl.value.trim();
+    const listPrice = parseFloat(listPriceEl.value) || 0;
+    const vatRate = parseFloat(vatRateEl.value) || 0;
+    const qty = parseFloat(qtyEl.value) || 0;
+    const profitValue = parseFloat(profitValueEl.value) || 0;
+    const vatTiming = getRadio(form, 'vatTiming') || 'after';
+    const vatInclusion = getRadio(form, 'vatInclusion') || 'excl';
+    const profitType = getRadio(form, 'profitType') || 'percent';
+    const roundMode = roundModeEl.value;
+    const shippingMode = getRadio(form, 'shippingMode') || 'flat';
+    const shippingValue = parseFloat(shippingValueEl.value) || 0;
+    updateShippingHint();
+
+    profitSuffixEl.textContent = profitType === 'percent' ? '%' : '฿';
+
+    const steps = (discountEl.value || '')
+      .split('/').map((s) => s.trim()).filter((s) => s !== '')
+      .map((s) => parseFloat(s)).filter((n) => !isNaN(n) && n >= 0 && n < 100);
+
+    const chainResult = chainDiscount(listPrice, steps);
+    const { netCost, costWithVat: costWithVatNoShip } = resolveCostBasis(chainResult, vatRate, vatInclusion);
+
+    const shippingPerUnit = shippingMode === 'flat'
+      ? (qty > 0 ? shippingValue / qty : 0)
+      : shippingValue;
+    const netCostTotal = netCost + shippingPerUnit;
+
+    const { profitAmount, sellPrice: sellPriceRaw, costWithVat } = sellPriceFromCost(netCostTotal, vatRate, vatTiming, profitType, profitValue);
+
+    const sellPrice = applyRounding(sellPriceRaw, roundMode);
+    const profitPerUnit = sellPrice - costWithVat;
+    const effectiveDiscount = listPrice > 0 ? (1 - netCost / listPrice) * 100 : 0;
+
+    const totalCost = costWithVat * qty;
+    const totalRevenue = sellPrice * qty;
+    const totalProfit = profitPerUnit * qty;
+
+    const tiers = getTierConfig().map((t) => {
+      const r = sellPriceFromCost(netCostTotal, vatRate, vatTiming, t.type, t.value);
+      return { ...t, sellPrice: r.sellPrice };
+    });
+
+    $('resItemNameLabel').textContent = itemName ? itemName : 'สรุปผลการคำนวณ';
+    $('effDiscountBadge').textContent = `ลด ${effectiveDiscount.toFixed(1)}%`;
+    $('resListPrice').textContent = fmt(listPrice);
+    $('resNetCost').textContent = fmt(netCost);
+    $('resShipping').textContent = fmt(shippingPerUnit);
+    $('resNetCostTotal').textContent = fmt(netCostTotal);
+    $('resCostVat').textContent = fmt(costWithVat);
+    $('resProfitUnit').textContent = fmt(profitPerUnit);
+    $('resSellPrice').textContent = fmt(sellPrice);
+    $('resRoundNote').textContent = roundMode === 'none' ? '' : `ก่อนปัดเศษ: ฿${fmt(sellPriceRaw)}`;
+    $('resQty').textContent = fmtInt(qty);
+    $('resTotalCost').textContent = fmt(totalCost);
+    $('resTotalRevenue').textContent = fmt(totalRevenue);
+    $('resTotalProfit').textContent = fmt(totalProfit);
+
+    const tierWrap = $('tierResults');
+    tierWrap.innerHTML = tiers.map((t) => `
+      <div class="flex justify-between items-baseline">
+        <dt class="text-inkfade">${t.name}</dt>
+        <dd class="font-mono font-medium">฿${fmt(t.sellPrice)}</dd>
+      </div>`).join('');
+
+    renderBreakdown(listPrice, steps);
+
+    lastForward = {
+      itemName, listPrice, discountSteps: discountEl.value, vatRate, vatInclusion, vatTiming,
+      profitType, profitValue, qty, roundMode, tiers,
+      shippingMode, shippingValue, shippingPerUnit,
+      netCost, netCostTotal, costWithVat, sellPrice, sellPriceRaw, profitPerUnit,
+      effectiveDiscount, totalCost, totalRevenue, totalProfit,
+    };
+  }
+
+  form.addEventListener('input', calculateForward);
+  form.addEventListener('change', calculateForward);
+
+  // ---------- Copy summary (forward) ----------
+  function buildForwardSummaryText() {
+    const r = lastForward;
+    if (!r) return '';
+    const lines = [];
+    lines.push(`🧾 ${r.itemName || 'รายการคำนวณราคา'}`);
+    lines.push(`ราคาตั้ง: ฿${fmt(r.listPrice)}`);
+    lines.push(`ส่วนลด: ${r.discountSteps || '-'} (ลดรวม ${r.effectiveDiscount.toFixed(1)}%)`);
+    lines.push(`ทุนสุทธิ (หลังหักส่วนลด): ฿${fmt(r.netCost)}`);
+    lines.push(`ค่าขนส่ง/หน่วย: ฿${fmt(r.shippingPerUnit)} (${r.shippingMode === 'flat' ? 'เหมา หารเฉลี่ยตามจำนวน' : 'ต่อชิ้น'})`);
+    lines.push(`ทุนสุทธิรวมขนส่ง: ฿${fmt(r.netCostTotal)}`);
+    lines.push(`ทุนรวม VAT: ฿${fmt(r.costWithVat)}`);
+    lines.push(`กำไรต่อหน่วย: ฿${fmt(r.profitPerUnit)}`);
+    lines.push(`ราคาขายสุทธิ/หน่วย: ฿${fmt(r.sellPrice)}`);
+    lines.push(`จำนวน: ${fmtInt(r.qty)} หน่วย`);
+    lines.push(`ยอดขายรวม: ฿${fmt(r.totalRevenue)}`);
+    lines.push(`กำไรรวม: ฿${fmt(r.totalProfit)}`);
+    if (r.tiers && r.tiers.length) {
+      lines.push('');
+      lines.push('ระดับราคา:');
+      r.tiers.forEach((t) => lines.push(`- ${t.name}: ฿${fmt(t.sellPrice)}`));
+    }
+    return lines.join('\n');
+  }
+  $('copySummaryBtn').addEventListener('click', () => {
+    calculateForward();
+    copyText(buildForwardSummaryText());
+  });
+
+  // =====================================================================
+  // HISTORY
+  // =====================================================================
+  let editingId = null;
+
+  function loadHistory() {
+    try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; }
+    catch (e) { return []; }
+  }
+  function saveHistory(list) {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+  }
+
+  function renderHistory() {
+    const list = loadHistory().sort((a, b) => (b.savedAt || '').localeCompare(a.savedAt || ''));
+    $('historyCount').textContent = `${list.length} รายการ`;
+    $('historyEmpty').classList.toggle('hidden', list.length > 0);
+    const wrap = $('historyList');
+    wrap.innerHTML = '';
+    list.forEach((item) => {
+      const card = document.createElement('div');
+      card.className = 'border border-line rounded-xl p-3 hover:border-ledger cursor-pointer transition-colors bg-paper/40';
+      const savedDate = item.savedAt ? new Date(item.savedAt).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }) : '';
+      card.innerHTML = `
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <p class="font-medium text-sm truncate">${item.itemName || '(ไม่ได้ตั้งชื่อ)'}</p>
+            <p class="text-[11px] text-inkfade">${savedDate}</p>
+          </div>
+          <button type="button" data-del="${item.id}" class="shrink-0 text-inkfade hover:text-rust text-xs font-semibold px-2 py-1">ลบ</button>
+        </div>
+        <div class="grid grid-cols-2 gap-x-3 gap-y-1 mt-2 text-xs font-mono">
+          <span class="text-inkfade">ราคาตั้ง <span class="text-ink">฿${fmt(item.listPrice)}</span></span>
+          <span class="text-inkfade">ทุนสุทธิ <span class="text-ink">฿${fmt(item.netCost)}</span></span>
+          <span class="text-inkfade">ขนส่ง/หน่วย <span class="text-ink">฿${fmt(item.shippingPerUnit || 0)}</span></span>
+          <span class="text-inkfade">ทุนรวมขนส่ง <span class="text-ink">฿${fmt(item.netCostTotal != null ? item.netCostTotal : item.netCost)}</span></span>
+          <span class="text-inkfade">ขาย <span class="text-ledgerdark font-semibold">฿${fmt(item.sellPrice)}</span></span>
+          <span class="text-inkfade">กำไร/หน่วย <span class="text-ledgerdark font-semibold">฿${fmt(item.profitPerUnit)}</span></span>
+        </div>`;
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('[data-del]')) return;
+        loadItemIntoForm(item);
+      });
+      card.querySelector('[data-del]').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (confirm('ลบรายการนี้หรือไม่?')) {
+          const remaining = loadHistory().filter((it) => it.id !== item.id);
+          saveHistory(remaining);
+          if (editingId === item.id) cancelEdit();
+          renderHistory();
+        }
+      });
+      wrap.appendChild(card);
+    });
+  }
+
+  function loadItemIntoForm(item) {
+    itemNameEl.value = item.itemName || '';
+    listPriceEl.value = item.listPrice;
+    discountEl.value = item.discountSteps;
+    shippingValueEl.value = item.shippingValue != null ? item.shippingValue : 0;
+    vatRateEl.value = item.vatRate;
+    qtyEl.value = item.qty;
+    profitValueEl.value = item.profitValue;
+    roundModeEl.value = item.roundMode || 'none';
+    form.querySelector(`input[name="shippingMode"][value="${item.shippingMode || 'flat'}"]`).checked = true;
+    form.querySelector(`input[name="vatInclusion"][value="${item.vatInclusion}"]`).checked = true;
+    form.querySelector(`input[name="vatTiming"][value="${item.vatTiming}"]`).checked = true;
+    form.querySelector(`input[name="profitType"][value="${item.profitType}"]`).checked = true;
+    if (item.tiers) {
+      item.tiers.forEach((t) => {
+        const nameEl = form.querySelector(`[data-tier-name="${t.key}"]`);
+        const valEl = form.querySelector(`[data-tier-value="${t.key}"]`);
+        const typeEl = form.querySelector(`[data-tier-type="${t.key}"]`);
+        if (nameEl) nameEl.value = t.name;
+        if (valEl) valEl.value = t.value;
+        if (typeEl) typeEl.value = t.type;
+      });
+    }
+    editingId = item.id;
+    $('editBanner').classList.remove('hidden');
+    $('editBannerText').textContent = `กำลังแก้ไข: ${item.itemName || '(ไม่ได้ตั้งชื่อ)'}`;
+    currentMode = 'forward';
+    document.querySelectorAll('[data-mode-btn]').forEach((b) => b.setAttribute('data-active', b.getAttribute('data-mode-btn') === 'forward' ? 'true' : 'false'));
+    $('panel-forward').classList.remove('panel-hidden');
+    $('panel-reverse').classList.add('panel-hidden');
+    calculateForward();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function cancelEdit() {
+    editingId = null;
+    $('editBanner').classList.add('hidden');
+  }
+  $('cancelEditBtn').addEventListener('click', cancelEdit);
+
+  $('saveItemBtn').addEventListener('click', () => {
+    calculateForward();
+    const r = lastForward;
+    const list = loadHistory();
+    const record = {
+      id: editingId || (Date.now() + '-' + Math.random().toString(36).slice(2, 8)),
+      itemName: r.itemName, listPrice: r.listPrice, discountSteps: r.discountSteps,
+      vatRate: r.vatRate, vatInclusion: r.vatInclusion, vatTiming: r.vatTiming,
+      profitType: r.profitType, profitValue: r.profitValue, qty: r.qty, roundMode: r.roundMode,
+      shippingMode: r.shippingMode, shippingValue: r.shippingValue, shippingPerUnit: r.shippingPerUnit,
+      tiers: r.tiers, netCost: r.netCost, netCostTotal: r.netCostTotal, costWithVat: r.costWithVat, sellPrice: r.sellPrice,
+      profitPerUnit: r.profitPerUnit, effectiveDiscount: r.effectiveDiscount,
+      totalRevenue: r.totalRevenue, totalProfit: r.totalProfit,
+      savedAt: new Date().toISOString(),
+    };
+    if (editingId) {
+      const idx = list.findIndex((it) => it.id === editingId);
+      if (idx >= 0) list[idx] = record; else list.push(record);
+    } else {
+      list.push(record);
+    }
+    saveHistory(list);
+    cancelEdit();
+    renderHistory();
+    showToast('บันทึกรายการแล้ว');
+  });
+
+  $('clearHistoryBtn').addEventListener('click', () => {
+    if (loadHistory().length === 0) return;
+    if (confirm('ล้างประวัติทั้งหมดหรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้')) {
+      saveHistory([]);
+      cancelEdit();
+      renderHistory();
+      showToast('ล้างประวัติแล้ว');
+    }
+  });
+
+  $('exportCsvBtn').addEventListener('click', async () => {
+    const list = loadHistory();
+    if (!list.length) { showToast('ยังไม่มีรายการที่บันทึกไว้'); return; }
+    const headers = ['ชื่อสินค้า', 'ราคาตั้ง', 'ส่วนลด', 'ค่าขนส่ง/หน่วย', 'รูปแบบค่าขนส่ง', 'VAT %', 'ส่วนลดรวม %', 'ทุนสุทธิ', 'ทุนสุทธิรวมขนส่ง', 'ทุนรวมVAT', 'กำไรต่อหน่วย', 'ราคาขาย', 'จำนวน', 'ยอดขายรวม', 'กำไรรวม', 'บันทึกเมื่อ'];
+    const esc = (v) => `"${String(v).replace(/"/g, '""')}"`;
+    const rows = list.map((it) => [
+      it.itemName || '', it.listPrice, it.discountSteps, it.shippingPerUnit || 0,
+      it.shippingMode === 'flat' ? 'เหมา' : 'ต่อชิ้น', it.vatRate,
+      (it.effectiveDiscount || 0).toFixed(1), it.netCost, it.netCostTotal != null ? it.netCostTotal : it.netCost,
+      it.costWithVat, it.profitPerUnit,
+      it.sellPrice, it.qty, it.totalRevenue, it.totalProfit, it.savedAt,
+    ].map(esc).join(','));
+    const csv = '\uFEFF' + headers.map(esc).join(',') + '\n' + rows.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const d = new Date();
+    const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+    const filename = `pricing-history-${stamp}.csv`;
+
+    // Prefer the platform's download capability when this page is opened as a
+    // published Claude artifact; otherwise fall back to a plain browser download
+    // (used when the file is opened directly, e.g. double-clicked on a phone/PC).
+    try {
+      if (window.claude && typeof window.claude.use === 'function') {
+        const downloads = await window.claude.use('downloads');
+        if (downloads) {
+          await downloads.save({ filename, data: blob });
+          showToast('ดาวน์โหลด CSV แล้ว');
+          return;
+        }
+      }
+    } catch (err) {
+      if (err && err.code === 'declined') return; // viewer said no, don't fall back
+      // otherwise fall through to the plain browser download below
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('ดาวน์โหลด CSV แล้ว');
+  });
+
+  // =====================================================================
+  // REVERSE MODE
+  // =====================================================================
+  const revForm = $('rev-form');
+  const revTargetPriceEl = $('revTargetPrice');
+  const revListPriceEl = $('revListPrice');
+  const revProfitValueEl = $('revProfitValue');
+  const revProfitSuffixEl = $('revProfitSuffix');
+  const revNetCostEl = $('revNetCost');
+  const revVatRateEl = $('revVatRate');
+
+  function updateRevSubModeVisibility() {
+    const sub = getRadio(revForm, 'revSubMode') || 'discount';
+    $('revDiscountFields').classList.toggle('hidden', sub !== 'discount');
+    $('revMarkupFields').classList.toggle('hidden', sub !== 'markup');
+  }
+
+  let lastReverse = null;
+
+  function calculateReverse() {
+    updateRevSubModeVisibility();
+    const targetPrice = parseFloat(revTargetPriceEl.value) || 0;
+    const vatRate = parseFloat(revVatRateEl.value) || 0;
+    const vatTiming = getRadio(revForm, 'revVatTiming') || 'after';
+    const vatInclusion = getRadio(revForm, 'revVatInclusion') || 'excl';
+    const subMode = getRadio(revForm, 'revSubMode') || 'discount';
+    const profitType = getRadio(revForm, 'revProfitType') || 'percent';
+    const profitValue = parseFloat(revProfitValueEl.value) || 0;
+    revProfitSuffixEl.textContent = profitType === 'percent' ? '%' : '฿';
+
+    const body = $('revResultBody');
+    let html = '';
+    let summaryLines = [];
+
+    if (subMode === 'discount') {
+      const listPrice = parseFloat(revListPriceEl.value) || 0;
+      const listPriceExclVat = vatInclusion === 'incl' ? listPrice / (1 + vatRate / 100) : listPrice;
+      const requiredNetCost = solveNetCostFromTarget(targetPrice, vatRate, vatTiming, profitType, profitValue);
+
+      if (requiredNetCost <= 0) {
+        html = `<p class="text-rust text-sm">เป็นไปไม่ได้: ราคาขายเป้าหมายต่ำเกินไปสำหรับกำไรที่ต้องการ แม้ทุนจะเป็น 0</p>`;
+        summaryLines = [`ราคาขายเป้าหมาย: ฿${fmt(targetPrice)}`, 'ผล: ไม่สามารถทำได้ด้วยกำไรที่ตั้งไว้'];
+      } else if (requiredNetCost >= listPriceExclVat) {
+        const at0 = achievedMarkup(listPriceExclVat, targetPrice, vatRate, vatTiming);
+        html = `
+          <p class="text-ledgerdark text-sm font-medium">ไม่จำเป็นต้องขอส่วนลดเพิ่ม — ทุนปัจจุบันก็ถึงเป้าหมายแล้ว</p>
+          <div class="flex justify-between text-sm mt-2"><dt class="text-inkfade">ทุนที่ต้องการ (สูงสุด)</dt><dd class="font-mono">฿${fmt(requiredNetCost)}</dd></div>
+          <div class="flex justify-between text-sm"><dt class="text-inkfade">กำไร % ที่ได้จริงที่ราคาตั้งปัจจุบัน</dt><dd class="font-mono text-ledgerdark">${isFinite(at0.achievedPct) ? at0.achievedPct.toFixed(1) + '%' : '-'}</dd></div>`;
+        summaryLines = [`ราคาขายเป้าหมาย: ฿${fmt(targetPrice)}`, 'ผล: ไม่ต้องขอส่วนลดเพิ่ม', `กำไร % ที่ได้จริงจากราคาตั้งปัจจุบัน: ${isFinite(at0.achievedPct) ? at0.achievedPct.toFixed(1) + '%' : '-'}`];
+      } else {
+        const requiredDiscountPct = (1 - requiredNetCost / listPriceExclVat) * 100;
+        const costWithVat = requiredNetCost * (1 + vatRate / 100);
+        html = `
+          <div class="flex justify-between text-sm"><dt class="text-inkfade">ราคาตั้ง (ไม่รวม VAT)</dt><dd class="font-mono">฿${fmt(listPriceExclVat)}</dd></div>
+          <div class="flex justify-between text-sm"><dt class="text-inkfade">ทุนสุทธิที่ต้องได้</dt><dd class="font-mono">฿${fmt(requiredNetCost)}</dd></div>
+          <div class="flex justify-between text-sm"><dt class="text-inkfade">ทุนรวม VAT ที่ต้องได้</dt><dd class="font-mono">฿${fmt(costWithVat)}</dd></div>
+          <div class="border-t border-dashed border-line my-2"></div>
+          <div class="flex items-end justify-between"><span class="font-serif text-sm">ส่วนลดรวมที่ต้องขอ (เทียบเท่า)</span><span class="font-mono font-bold text-xl text-ledgerdark">${requiredDiscountPct.toFixed(1)}%</span></div>`;
+        summaryLines = [
+          `ราคาขายเป้าหมาย: ฿${fmt(targetPrice)}`,
+          `ราคาตั้ง: ฿${fmt(listPriceExclVat)}`,
+          `ทุนสุทธิที่ต้องได้: ฿${fmt(requiredNetCost)}`,
+          `ส่วนลดรวมที่ต้องขอจากซัพพลายเออร์: ${requiredDiscountPct.toFixed(1)}%`,
+        ];
+      }
+    } else {
+      const netCostInput = parseFloat(revNetCostEl.value) || 0;
+      const netCostExclVat = vatInclusion === 'incl' ? netCostInput / (1 + vatRate / 100) : netCostInput;
+      const r = achievedMarkup(netCostExclVat, targetPrice, vatRate, vatTiming);
+      if (r.achievedProfit < 0) {
+        html = `<p class="text-rust text-sm">ขาดทุน: ที่ราคาขายเป้าหมายนี้ ทุนสูงกว่าราคาขาย</p>
+          <div class="flex justify-between text-sm mt-2"><dt class="text-inkfade">ขาดทุนต่อหน่วย</dt><dd class="font-mono text-rust">฿${fmt(Math.abs(r.achievedProfit))}</dd></div>`;
+        summaryLines = [`ราคาขายเป้าหมาย: ฿${fmt(targetPrice)}`, `ทุนสุทธิ: ฿${fmt(netCostExclVat)}`, `ผล: ขาดทุน ฿${fmt(Math.abs(r.achievedProfit))} ต่อหน่วย`];
+      } else {
+        html = `
+          <div class="flex justify-between text-sm"><dt class="text-inkfade">ทุนสุทธิ (ไม่รวม VAT)</dt><dd class="font-mono">฿${fmt(netCostExclVat)}</dd></div>
+          <div class="flex justify-between text-sm"><dt class="text-inkfade">ทุนรวม VAT</dt><dd class="font-mono">฿${fmt(r.costWithVat)}</dd></div>
+          <div class="flex justify-between text-sm"><dt class="text-inkfade">กำไรต่อหน่วยที่ได้จริง</dt><dd class="font-mono text-ledgerdark">฿${fmt(r.achievedProfit)}</dd></div>
+          <div class="border-t border-dashed border-line my-2"></div>
+          <div class="flex items-end justify-between"><span class="font-serif text-sm">% กำไรที่ได้จริง</span><span class="font-mono font-bold text-xl text-ledgerdark">${isFinite(r.achievedPct) ? r.achievedPct.toFixed(1) + '%' : '-'}</span></div>`;
+        summaryLines = [
+          `ราคาขายเป้าหมาย: ฿${fmt(targetPrice)}`,
+          `ทุนสุทธิ: ฿${fmt(netCostExclVat)}`,
+          `กำไรต่อหน่วยที่ได้จริง: ฿${fmt(r.achievedProfit)}`,
+          `% กำไรที่ได้จริง: ${isFinite(r.achievedPct) ? r.achievedPct.toFixed(1) + '%' : '-'}`,
+        ];
+      }
+    }
+    body.innerHTML = html;
+    lastReverse = summaryLines;
+  }
+
+  revForm.addEventListener('input', calculateReverse);
+  revForm.addEventListener('change', calculateReverse);
+  $('copySummaryRevBtn').addEventListener('click', () => {
+    calculateReverse();
+    copyText(['🧮 ผลการย้อนกลับ', ...(lastReverse || [])].join('\n'));
+  });
+
+  // ---------- init ----------
+  calculateForward();
+  calculateReverse();
+  renderHistory();
+})();
+</script>
+
+</body>
+</html>
